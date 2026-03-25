@@ -10,6 +10,7 @@ import (
 	"api-monitoring-platform/internal/config"
 	"api-monitoring-platform/internal/database"
 	"api-monitoring-platform/internal/models"
+	"api-monitoring-platform/pkg/circuitbreaker"
 	"api-monitoring-platform/pkg/kafka"
 	"api-monitoring-platform/pkg/logger"
 
@@ -71,15 +72,45 @@ func monitorAPI(api models.API) {
 
 	start := time.Now()
 
-	resp, err := http.Get(api.URL)
+	client := http.Client{
+		Timeout: 5 * time.Second,
+	}
 
+	var resp *http.Response
+	var err error
+
+	for i := 0; i < 3; i++ {
+
+		result, breakerErr := circuitbreaker.Breaker.Execute(func() (interface{}, error) {
+
+			return client.Get(api.URL)
+
+		})
+
+		if breakerErr != nil {
+
+			err = breakerErr
+			continue
+
+		}
+
+		resp = result.(*http.Response)
+
+		err = nil
+
+		break
+	}
 	duration := time.Since(start)
 
 	status := 0
 
 	if err != nil {
 
-		fmt.Println("API DOWN:", api.Name)
+		status = 503
+
+		logger.Log.WithFields(map[string]interface{}{
+			"api": api.Name,
+		}).Error("API request failed")
 
 	} else {
 
@@ -118,7 +149,6 @@ func monitorAPI(api models.API) {
 	}
 
 	// Publish event to Kafka
-
 	event := map[string]interface{}{
 		"api_name":  api.Name,
 		"url":       api.URL,

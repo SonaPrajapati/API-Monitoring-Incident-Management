@@ -14,6 +14,7 @@ import (
 	"api-monitoring-platform/internal/handlers"
 	"api-monitoring-platform/internal/middleware"
 	"api-monitoring-platform/internal/worker"
+	"api-monitoring-platform/pkg/circuitbreaker"
 	"api-monitoring-platform/pkg/kafka"
 	"api-monitoring-platform/pkg/logger"
 
@@ -24,6 +25,7 @@ func main() {
 
 	config.LoadConfig()
 	logger.InitLogger()
+	circuitbreaker.InitBreaker()
 	kafka.InitProducer()
 
 	// Connect database
