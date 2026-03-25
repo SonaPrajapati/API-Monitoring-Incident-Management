@@ -61,7 +61,16 @@ func Login(c *gin.Context) {
 		return
 	}
 
-	token, _ := jwt.GenerateToken(dbUser.Email)
+	if dbUser.Password != user.Password {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
+		return
+	}
+
+	token, err := jwt.GenerateToken(dbUser.Email)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Token error"})
+		return
+	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"token": token,
